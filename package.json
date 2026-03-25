@@ -1,0 +1,13 @@
+{
+  "name": "epg-generator",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.6",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1"
+  }
+}
