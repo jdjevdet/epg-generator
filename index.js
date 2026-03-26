@@ -16,7 +16,8 @@ app.use(express.json());
 
 // --- TARGET CATEGORIES ---
 const TARGET_CATEGORIES = [
-  'Sports | Big Ten +'
+  'Sports | Big Ten +',
+  'Sports | DAZN CA'
 ];
 
 // --- GENERATE EPG ID ---
@@ -30,7 +31,8 @@ function generateEpgId(channelName, categoryName) {
   const num = parseInt(numMatch[1]);
   const cat = categoryName.toLowerCase();
 
-  if (cat.includes('big ten')) return `BTN+ ${String(num).padStart(3, '0')}`;
+  if (cat.includes('big ten'))   return `BTN+ ${String(num).padStart(3, '0')}`;
+  if (cat.includes('dazn ca'))   return `DAZN ${String(num).padStart(3, '0')}`;
 
   return null;
 }
@@ -97,9 +99,12 @@ function timeInfoToUTC(timeInfo, currentYear) {
     let dt;
 
     if (timeInfo.type === 'iso') {
+      // ISO times from provider are in UTC — convert to Eastern
+      // EDT = UTC-4 (Mar-Nov), EST = UTC-5 (Nov-Mar)
       const isoStr = timeInfo.value.replace(' ', 'T');
       dt = new Date(`${isoStr}Z`);
-      dt.setUTCHours(dt.getUTCHours() + 5);
+      // Apply EDT offset (UTC-4) — correct for daylight saving time
+      dt.setUTCHours(dt.getUTCHours() + 4);
 
     } else if (timeInfo.type === 'dotdate') {
       const parts = timeInfo.date.split('.');
@@ -146,7 +151,7 @@ function applyTimezoneOffset(dt, timeStr) {
   const isPT = /PT|PST|PDT/i.test(timeStr);
   const isCT = /CT|CST|CDT/i.test(timeStr);
   const isMT = /MT|MST|MDT/i.test(timeStr);
-  let offset = 4;
+  let offset = 4; // Default EDT (UTC-4)
   if (isPT) offset = 7;
   if (isCT) offset = 5;
   if (isMT) offset = 6;
@@ -157,19 +162,42 @@ function applyTimezoneOffset(dt, timeStr) {
 // --- SMART DURATION DETECTION ---
 function detectDuration(title) {
   const t = title.toLowerCase();
-  if (/\bgolf\b/.test(t) || /\bnascar\b/.test(t) || /\bcycling\b/.test(t) || /\bmarathon\b/.test(t) || /\bindycar\b/.test(t) || /\bf1\b|formula 1/.test(t)) return 240;
-  if (/\bnfl\b/.test(t) || /\bnba\b/.test(t) || /\bnhl\b/.test(t) || /\bmlb\b/.test(t) || /\bufc\b/.test(t) || /\bmma\b/.test(t) || /\bboxing\b/.test(t) || /\bwwe\b/.test(t) || /\bfight\b/.test(t)) return 180;
-  if (/\bvs\.?\b/.test(t) || / @ /.test(t) || /\bfinal\b/.test(t) || /\bplayoff\b/.test(t) || /\bchampionship\b/.test(t) || /\bmatch\b/.test(t) || /\bgame\b/.test(t)) return 120;
-  if (/\bhighlights\b/.test(t) || /\brecap\b/.test(t) || /\bnews\b/.test(t)) return 30;
-  if (/\bshow\b/.test(t) || /\bdaily\b/.test(t) || /\bpress conference\b/.test(t) || /\bdraft\b/.test(t)) return 60;
-  return 60;
+  // 3 hours — sports that typically run longer
+  if (
+    /\bbaseball\b/.test(t) ||
+    /\bsoftball\b/.test(t) ||
+    /\bhockey\b/.test(t) ||
+    /\blacrosse\b/.test(t) ||
+    /\bnfl\b/.test(t) ||
+    /\bnba\b/.test(t) ||
+    /\bnhl\b/.test(t) ||
+    /\bmlb\b/.test(t) ||
+    /\bufc\b/.test(t) ||
+    /\bmma\b/.test(t) ||
+    /\bboxing\b/.test(t) ||
+    /\bwwe\b/.test(t) ||
+    /\bfight\b/.test(t) ||
+    /\bwrestling\b/.test(t)
+  ) return 180;
+  // 4 hours — endurance sports
+  if (
+    /\bgolf\b/.test(t) ||
+    /\bnascar\b/.test(t) ||
+    /\bcycling\b/.test(t) ||
+    /\bmarathon\b/.test(t) ||
+    /\bindycar\b/.test(t) ||
+    /\bf1\b/.test(t) ||
+    /\bformula 1\b/.test(t)
+  ) return 240;
+  // Default — 2 hours minimum for everything else
+  return 120;
 }
 
 // --- CALCULATE END TIME AT 6AM EST NEXT DAY ---
 function getNextDay6amEST(eventEndDate) {
   const next = new Date(eventEndDate);
   next.setUTCDate(next.getUTCDate() + 1);
-  next.setUTCHours(11, 0, 0, 0);
+  next.setUTCHours(10, 0, 0, 0); // 6 AM EDT = 10:00 UTC
   return next;
 }
 
@@ -274,9 +302,9 @@ async function generateAndPushEPG() {
     allChannelBlocks += `    <display-name lang="en">${titleEsc}</display-name>\n`;
     allChannelBlocks += `  </channel>\n`;
 
-    // Block 1: Up Next
+    // Block 1: Next Event
     allProgrammeBlocks += `  <programme start="${preStartXMLTV}" stop="${startXMLTV}" channel="${epgIdEsc}">\n`;
-    allProgrammeBlocks += `    <title lang="en">Up Next: ${titleEsc}</title>\n`;
+    allProgrammeBlocks += `    <title lang="en">NEXT EVENT: ${titleEsc}</title>\n`;
     allProgrammeBlocks += `    <desc lang="en">Coming up on ${categoryEsc}: ${titleEsc} | ${dateStr}</desc>\n`;
     allProgrammeBlocks += `    <category lang="en">${categoryEsc}</category>\n`;
     allProgrammeBlocks += `  </programme>\n\n`;
