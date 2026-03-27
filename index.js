@@ -17,7 +17,8 @@ app.use(express.json());
 // --- TARGET CATEGORIES ---
 const TARGET_CATEGORIES = [
   'Sports | Big Ten +',
-  'Sports | DAZN CA'
+  'Sports | DAZN CA',
+  'Sports | Stan (2)'
 ];
 
 // --- GENERATE EPG ID ---
@@ -31,8 +32,9 @@ function generateEpgId(channelName, categoryName) {
   const num = parseInt(numMatch[1]);
   const cat = categoryName.toLowerCase();
 
-  if (cat.includes('big ten'))   return `BTN+ ${String(num).padStart(3, '0')}`;
-  if (cat.includes('dazn ca'))   return `DAZN ${String(num).padStart(3, '0')}`;
+  if (cat.includes('big ten'))  return `BTN+ ${String(num).padStart(3, '0')}`;
+  if (cat.includes('dazn ca'))  return `DAZN ${String(num).padStart(3, '0')}`;
+  if (cat.includes('stan'))     return `Stan ${String(num).padStart(2, '0')}`;
 
   return null;
 }
@@ -99,11 +101,8 @@ function timeInfoToUTC(timeInfo, currentYear) {
     let dt;
 
     if (timeInfo.type === 'iso') {
-      // ISO times from provider are in UTC — convert to Eastern
-      // EDT = UTC-4 (Mar-Nov), EST = UTC-5 (Nov-Mar)
       const isoStr = timeInfo.value.replace(' ', 'T');
       dt = new Date(`${isoStr}Z`);
-      // Apply EDT offset (UTC-4) — correct for daylight saving time
       dt.setUTCHours(dt.getUTCHours() + 4);
 
     } else if (timeInfo.type === 'dotdate') {
@@ -162,7 +161,15 @@ function applyTimezoneOffset(dt, timeStr) {
 // --- SMART DURATION DETECTION ---
 function detectDuration(title) {
   const t = title.toLowerCase();
-  // 3 hours — sports that typically run longer
+  if (
+    /\bgolf\b/.test(t) ||
+    /\bnascar\b/.test(t) ||
+    /\bcycling\b/.test(t) ||
+    /\bmarathon\b/.test(t) ||
+    /\bindycar\b/.test(t) ||
+    /\bf1\b/.test(t) ||
+    /\bformula 1\b/.test(t)
+  ) return 240;
   if (
     /\bbaseball\b/.test(t) ||
     /\bsoftball\b/.test(t) ||
@@ -179,21 +186,10 @@ function detectDuration(title) {
     /\bfight\b/.test(t) ||
     /\bwrestling\b/.test(t)
   ) return 180;
-  // 4 hours — endurance sports
-  if (
-    /\bgolf\b/.test(t) ||
-    /\bnascar\b/.test(t) ||
-    /\bcycling\b/.test(t) ||
-    /\bmarathon\b/.test(t) ||
-    /\bindycar\b/.test(t) ||
-    /\bf1\b/.test(t) ||
-    /\bformula 1\b/.test(t)
-  ) return 240;
-  // Default — 2 hours minimum for everything else
   return 120;
 }
 
-// --- CALCULATE END TIME AT 6AM EST NEXT DAY ---
+// --- CALCULATE END TIME AT 6AM EDT NEXT DAY ---
 function getNextDay6amEST(eventEndDate) {
   const next = new Date(eventEndDate);
   next.setUTCDate(next.getUTCDate() + 1);
