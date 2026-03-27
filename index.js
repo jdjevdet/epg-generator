@@ -18,7 +18,8 @@ app.use(express.json());
 const TARGET_CATEGORIES = [
   'Sports | Big Ten +',
   'Sports | DAZN CA',
-  'Sports | Stan (2)'
+  'Sports | Stan (2)',
+  'Sports | F1 (Apple)'
 ];
 
 // --- GENERATE EPG ID ---
@@ -35,6 +36,7 @@ function generateEpgId(channelName, categoryName) {
   if (cat.includes('big ten'))  return `BTN+ ${String(num).padStart(3, '0')}`;
   if (cat.includes('dazn ca'))  return `DAZN ${String(num).padStart(3, '0')}`;
   if (cat.includes('stan'))     return `Stan ${String(num).padStart(2, '0')}`;
+  if (cat.includes('f1'))       return `Apple F1 ${String(num).padStart(2, '0')}`;
 
   return null;
 }
